@@ -1,22 +1,24 @@
-import { useState } from "react";
+import React, { useState } from "react";
 
-function MealDBApp() {
-  const [query, setQuery] = useState("");
+function App() {
+  const [search, setSearch] = useState("");
   const [results, setResults] = useState([]);
+  const [trackedMeals, setTrackedMeals] = useState([]);
+  const [customName, setCustomName] = useState("");
+  const [customCalories, setCustomCalories] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const handleSearch = async (e) => {
-    e.preventDefault();
-
-    if (!query.trim()) return;
+  // 🔎 Search MealDB
+  const searchMeals = async () => {
+    if (!search) return;
 
     setLoading(true);
     setError(null);
 
     try {
       const response = await fetch(
-        `https://www.themealdb.com/api/json/v1/1/search.php?s=${query}`
+        `https://www.themealdb.com/api/json/v1/1/search.php?s=${search}`
       );
 
       if (!response.ok) {
@@ -24,92 +26,127 @@ function MealDBApp() {
       }
 
       const data = await response.json();
-
-      if (!data.meals) {
-        setResults([]);
-        setError("No meals found.");
-      } else {
-        setResults(data.meals);
-      }
+      setResults(data.meals || []);
     } catch (err) {
-      setError("Something went wrong. Please try again.");
-      console.error(err);
+      setError(err.message);
     } finally {
       setLoading(false);
     }
   };
 
+  // ➕ Add API Meal
+  const addApiMeal = (meal) => {
+    const newMeal = {
+      id: Date.now(),
+      name: meal.strMeal,
+      calories: 500 // temporary estimate
+    };
+
+    setTrackedMeals([...trackedMeals, newMeal]);
+  };
+
+  // ➕ Add Custom Meal
+  const addCustomMeal = () => {
+    if (!customName || !customCalories) return;
+
+    const newMeal = {
+      id: Date.now(),
+      name: customName,
+      calories: Number(customCalories)
+    };
+
+    setTrackedMeals([...trackedMeals, newMeal]);
+
+    setCustomName("");
+    setCustomCalories("");
+  };
+
+  // 🗑 Delete Meal
+  const deleteMeal = (id) => {
+    setTrackedMeals(trackedMeals.filter((meal) => meal.id !== id));
+  };
+
+  // 🧮 Total Calories
+  const totalCalories = trackedMeals.reduce(
+    (total, meal) => total + meal.calories,
+    0
+  );
+
   return (
-    <div style={containerStyle}>
-      <h2>🍽️ MealDB Explorer</h2>
+    <div style={{ padding: "20px", fontFamily: "Arial" }}>
+      <h1>Nutrition Tracker</h1>
 
-      <form onSubmit={handleSearch} style={{ marginBottom: "20px" }}>
-        <input
-          type="text"
-          placeholder="Search meals (e.g. chicken, pasta)..."
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          style={inputStyle}
-        />
-        <button type="submit" style={buttonStyle}>
-          Search
-        </button>
-      </form>
+      {/* 🔎 Search Section */}
+      <h2>Search Meals</h2>
+      <input
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Search meal..."
+      />
+      <button onClick={searchMeals}>Search</button>
 
-      {loading && <p>🔍 Searching...</p>}
+      {loading && <p>Loading...</p>}
       {error && <p style={{ color: "red" }}>{error}</p>}
 
-      <div style={gridStyle}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
         {results.map((meal) => (
-          <div key={meal.idMeal} style={cardStyle}>
+          <div
+            key={meal.idMeal}
+            style={{
+              border: "1px solid #ccc",
+              padding: "10px",
+              width: "200px"
+            }}
+          >
             <img
               src={meal.strMealThumb}
               alt={meal.strMeal}
-              style={{ width: "100%", borderRadius: "8px" }}
+              style={{ width: "100%" }}
             />
             <h4>{meal.strMeal}</h4>
-            <p><strong>Category:</strong> {meal.strCategory}</p>
-            <p><strong>Area:</strong> {meal.strArea}</p>
+            <button onClick={() => addApiMeal(meal)}>
+              Add to Tracker
+            </button>
           </div>
         ))}
       </div>
+
+      <hr />
+
+      {/* ➕ Custom Meal Section */}
+      <h2>Add Custom Meal</h2>
+      <input
+        value={customName}
+        onChange={(e) => setCustomName(e.target.value)}
+        placeholder="Meal name"
+      />
+      <input
+        type="number"
+        value={customCalories}
+        onChange={(e) => setCustomCalories(e.target.value)}
+        placeholder="Calories"
+      />
+      <button onClick={addCustomMeal}>Add Custom Meal</button>
+
+      <hr />
+
+      {/* 📋 Tracked Meals */}
+      <h2>Tracked Meals</h2>
+
+      {trackedMeals.map((meal) => (
+        <div key={meal.id}>
+          <p>
+            {meal.name} — {meal.calories} kcal
+          </p>
+          <button onClick={() => deleteMeal(meal.id)}>
+            Delete
+          </button>
+        </div>
+      ))}
+
+      <h3>Total Calories: {totalCalories}</h3>
     </div>
   );
 }
 
-// ---------------- STYLES ----------------
-
-const containerStyle = {
-  maxWidth: "800px",
-  margin: "auto",
-  padding: "20px",
-  fontFamily: "Arial, sans-serif"
-};
-
-const inputStyle = {
-  padding: "10px",
-  width: "70%",
-  borderRadius: "5px",
-  border: "1px solid #ccc"
-};
-
-const buttonStyle = {
-  padding: "10px 15px",
-  marginLeft: "10px",
-  cursor: "pointer"
-};
-
-const gridStyle = {
-  display: "grid",
-  gridTemplateColumns: "1fr 1fr",
-  gap: "15px"
-};
-
-const cardStyle = {
-  border: "1px solid #ddd",
-  padding: "10px",
-  borderRadius: "10px",
-  textAlign: "center"
-};
-
-export default MealDBApp;
+export default App;
